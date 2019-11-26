@@ -1,0 +1,40 @@
+---
+
+- shell: echo  >> {{pre_check_logs}}
+- shell: "echo 'Mount FS of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
+
+- set_fact: src='/dev/mapper/{{vgname}}-{{lvname}}'
+  #when: disk1|regex_search('mpath')
+  
+- shell: "grep -m1 ' xfs ' /etc/fstab"
+  register: x
+  ignore_errors: true
+
+- set_fact: fst="xfs"
+  when: x.stdout|regex_search('xfs')
+  
+- shell: "grep -m1 ' ext3 ' /etc/fstab"
+  register: x
+  ignore_errors: true  
+
+- set_fact: fst="ext3"
+  when: x.stdout|regex_search('ext3')  
+
+- name: mount fs
+  mount:
+    path: "{{ fsname }}"
+    src: "{{ src }}"
+    fstype: "{{ fst }}"
+    state: "mounted"
+  ignore_errors: true
+  register: x
+ 
+- shell: "echo '***Success*** mount of {{ fsname }}!' >> {{pre_check_logs}}"
+  when: x is not failed 
+  
+- shell: |
+         echo ***Error*** mount of {{ fsname }}!!  >> {{pre_check_logs}}
+         echo '{{x.msg}}'  >> {{pre_check_logs}}
+  when: x is failed
+ 
+- shell: echo  >> {{pre_check_logs}}    
