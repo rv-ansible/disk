@@ -1,0 +1,29 @@
+---
+
+- shell: echo  >> {{pre_check_logs}}
+- shell: echo 'Create VG of {{inventory_hostname}} *************' >> {{pre_check_logs}}
+
+- set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
+  when: disk1|regex_search('mpath')
+
+- name: create vg
+  lvg:
+    vg: "{{ vgname }}"
+    pvs: "{{ pvlist }}"
+    state: present
+    pesize: "{{ pesize }}"
+  register: x
+  ignore_errors: true
+  
+- shell: "echo '***Success*** creation of VG {{vgname}}' >> {{pre_check_logs}}"
+  when: x is not failed
+  
+- block:  
+     - shell: |
+              echo '***Error*** creation of VG {{vgname}}' >> {{pre_check_logs}}
+              echo '{{x.msg}}' >> {{pre_check_logs}}
+     - set_fact: contx=false
+  when: x is failed
+    
+
+- shell: echo  >> {{pre_check_logs}}
