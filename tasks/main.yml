@@ -7,30 +7,5 @@
 
 ############# create partition tasks
 
-- include_tasks: create_dev.yml
-  when: create_dev|default(False)==True  
-
-- include_tasks: create_pv.yml
-  when: 
-     - create_pv|default(False)==True 
-     - contx|default(False)==True
-
-- include_tasks: create_vg.yml
-  when: 
-    - create_vg|default(False)==True 
-    - contx|default(False)==True  
-  
-- include_tasks: create_lv.yml
-  when: 
-    - create_lv|default(False)==True 
-    - contx|default(False)==True    
-  
-- include_tasks: create_fs.yml
-  when: 
-    - create_fs|default(False)==True 
-    - contx|default(False)==True    
-
-- include_tasks: mount_fs.yml
-  when: 
-    - mount_fs|default(False)==True 
-    - contx|default(False)==True    
+- include_tasks: create_partition.yml
+  when: create_partition|default(False)==True  
