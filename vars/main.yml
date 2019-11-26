@@ -1,0 +1,62 @@
+---
+
+############# common variables
+
+# These should be in the main playbook
+# pre_check_tmp:                            # extra vars
+# datestamp:                                # extra vars
+
+############# get raw disk variables
+# raw_prefix:                               # extra vars
+# check raw disk /dev/sd[b-k]
+letters:
+   - b
+   - c
+   - d
+   - e
+   - f
+   - g
+   - h 
+   - i 
+   - j 
+   - k
+
+# numbers should be the same as 
+# the letters above   
+numbers:
+  - 0
+  - 1
+  - 2
+  - 3 
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9  
+
+############# create partition variables
+pvname:                 # coming from inventory variables example pvname=sdc on each host
+vgname:                  # vg name
+lvname:                 # lv name
+fsname:                 # /path 
+partition: "1"                        # 1-4
+
+type: "p"                             # partition or logical
+ptype: "8e"                           # lvm
+disksize:                             # dev blank=use-all or put you own size like 10G
+pvlist: "/dev/{{disk1}}{{partition}}"  
+size: +100%FREE                       # lv to use
+src: "/dev/{{vgname}}/{{lvname}}"
+fst: "xfs"                            # the script automatically select this according to /etc/fstab   
+contp: true
+
+contx: true
+
+force: "no"
+answer: "no"
+pesize: "4"
+pvoption: ""
+vgoption: ""  
+active: "yes"
+option: ""      
