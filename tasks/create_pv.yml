@@ -1,0 +1,24 @@
+---
+
+- shell: echo  >> {{pre_check_logs}}
+- shell: echo 'Create PV of {{inventory_hostname}} *************' >> {{pre_check_logs}}
+
+- set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
+  when: disk1|regex_search('mpath')
+
+- name: pvcreate
+  shell: pvcreate {{ pvlist }}
+  register: x
+  ignore_errors: true
+  
+- shell: "echo '***Success*** creation of PV {{pvlist}}' >> {{pre_check_logs}}"
+  when: x.rc==0
+  
+- block:  
+     - shell: |
+              echo '***Error*** creation of PV {{pvlist}}' >> {{pre_check_logs}}
+              echo '{{x.stderr}}' >> {{pre_check_logs}}
+     - set_fact: contx=false
+  when: x.rc!=0  
+  
+- shell: echo  >> {{pre_check_logs}}
