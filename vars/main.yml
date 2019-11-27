@@ -5,6 +5,7 @@
 # These should be in the main playbook
 # pre_check_tmp:                            # extra vars
 # datestamp:                                # extra vars
+continue: true
 
 ############# get raw disk variables
 # raw_prefix:                               # extra vars
