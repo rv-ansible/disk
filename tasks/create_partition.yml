@@ -22,7 +22,7 @@
      - set_fact: continue_x=false
   when: x.stdout | regex_search('/dev/{{ pvname }}1') or x.stdout | regex_search('/dev/{{ pvname }}2') or x.stdout | regex_search('/dev/{{ pvname }}3') or x.stdout | regex_search('/dev/{{ pvname }}4')           
           
-- block:           
+- block:   #1        
   
     - name: Create the DEV 1 type P
       shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
@@ -59,204 +59,241 @@
          - shell: |
                   echo '***Error*** creation of DEV {{pvlist}}' >> {{pre_check_logs}}
                   echo {{x.msg}} >> {{pre_check_logs}}
-         - meta: end_play
+         - set_fact: continue_x=false
       when: x is failed
     
+    - block: #2
       
-    - name: Change the type to LVM for DEV 1
-      shell: (echo t; echo {{ ptype }}; echo w) | fdisk /dev/{{ pvname }}
-      ignore_errors: true
-      when: partition == "1"
-      ignore_errors: yes
-      register: x
-    
-    - name: Change the type to LVM for DEV >1
-      shell: (echo t; echo {{ partition }}; echo {{ ptype }}; echo w) | fdisk /dev/{{ pvname }}
-      ignore_errors: true
-      when: not(partition == "1")
-      ignore_errors: yes
-      register: x
-    
-    - shell: "echo '***Success*** change type of DEV {{pvlist}} to {{ptype}}!' >> {{pre_check_logs}}"
-      when: x is not failed
-      
-    - shell: |
-                  echo '***Error*** change type of DEV {{pvlist}} to {{ptype}}!' >> {{pre_check_logs}}
-                  echo '{{x.msg}}' >> {{pre_check_logs}}
-                  meta: end_play
-      when: x is failed
-      
-    - block:
-      
-       - shell: partprobe
-         register: x
+        - name: Change the type to LVM for DEV 1
+          shell: (echo t; echo {{ ptype }}; echo w) | fdisk /dev/{{ pvname }}
+          ignore_errors: true
+          when: partition == "1"
+          ignore_errors: yes
+          register: x
+        
+        - name: Change the type to LVM for DEV >1
+          shell: (echo t; echo {{ partition }}; echo {{ ptype }}; echo w) | fdisk /dev/{{ pvname }}
+          ignore_errors: true
+          when: not(partition == "1")
+          ignore_errors: yes
+          register: x
+        
+        - shell: "echo '***Success*** change type of DEV {{pvlist}} to {{ptype}}!' >> {{pre_check_logs}}"
+          when: x is not failed
+          
+        - block:
+          
+            - shell: |
+                          echo '***Error*** change type of DEV {{pvlist}} to {{ptype}}!' >> {{pre_check_logs}}
+                          echo '{{x.msg}}' >> {{pre_check_logs}}
+            - set_fact: continue_x=false
+            
+          when: x is failed
+          
+        - block: #3  
+          
+            - block:
+              
+               - shell: partprobe
+                 register: x
+               
+               - shell: "echo '***Success*** run of partprobe!' >> {{pre_check_logs}}"
+                 when: x is not failed 
+                 
+               - block:   
+                   - shell: |
+                            echo '***Error*** run of partprobe!' >> {{pre_check_logs}}
+                            echo '{{x.msg}}' >> {{pre_check_logs}}
+                   - set_fact: continue_x=false
+                 when: x is failed
+                            
+              when: disk1|regex_search('mpath')
+            
+            - block: #4
+            
+                - shell: echo  >> {{pre_check_logs}}
+                
+                ############## create pv ##############
+                
+                - shell: echo  >> {{pre_check_logs}}
+                - shell: echo 'Create PV of {{inventory_hostname}} *************' >> {{pre_check_logs}}
+                
+                - set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
+                  when: disk1|regex_search('mpath')
+                
+                - name: pvcreate
+                  shell: pvcreate {{ pvlist }}
+                  register: x
+                  ignore_errors: true
+                  
+                - shell: "echo '***Success*** creation of PV {{pvlist}}' >> {{pre_check_logs}}"
+                  when: x.rc==0
+                
+                - block:
+                  
+                    - shell: |
+                             echo '***Error*** creation of PV {{pvlist}}' >> {{pre_check_logs}}
+                             echo '{{x.stderr}}' >> {{pre_check_logs}}
+                    - set_fact: continue_x=false
+                             
+                  when: x.rc!=0  
+                  
+                - block: #5  
+                  
+                    - shell: echo  >> {{pre_check_logs}}
+                    
+                    ############## create vg ##############
+                    
+                    
+                    - shell: echo  >> {{pre_check_logs}}
+                    - shell: echo 'Create VG of {{inventory_hostname}} *************' >> {{pre_check_logs}}
+                    
+                    - set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
+                      when: disk1|regex_search('mpath')
+                    
+                    - name: create vg
+                      lvg:
+                        vg: "{{ vgname }}"
+                        pvs: "{{ pvlist }}"
+                        state: present
+                        pesize: "{{ pesize }}"
+                      register: x
+                      ignore_errors: true
+                      
+                    - shell: "echo '***Success*** creation of VG {{vgname}}' >> {{pre_check_logs}}"
+                      when: x is not failed
+                     
+                    - block:   
+                        - shell: |
+                                 echo '***Error*** creation of VG {{vgname}}' >> {{pre_check_logs}}
+                                 echo '{{x.msg}}' >> {{pre_check_logs}}
+                        - set_fact: continue_x=false
+                      when: x is failed
+                        
+                    - block: #6
+                    
+                        - shell: echo  >> {{pre_check_logs}}
+                        
+                        ############## create lv ##############
+                        
+                        - shell: echo  >> {{pre_check_logs}}
+                        - shell: "echo 'Create LV of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
+                          
+                        - set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
+                          when: disk1|regex_search('mpath') 
+                          
+                        - name: lvcreate
+                          lvol:
+                            vg: "{{ vgname }}"
+                            lv: "{{ lvname }}"
+                            size: "{{ size }}"
+                            pvs: "{{ pvlist }}"
+                            force: "{{ force }}"
+                            active: "{{ active }}"  
+                          register: x
+                          ignore_errors: true
+                          
+                        - shell: "echo '***Success*** creation of LV {{vgname}}' >> {{pre_check_logs}}"
+                          when: x is not failed
+                        
+                        - block:  
+                            - shell: |
+                                     echo '***Error*** creation of LV {{vgname}}' >> {{pre_check_logs}}
+                                     echo '{{x.msg}}' >> {{pre_check_logs}}
+                            - set_fact: continue_x=false
+                          when: x is failed
+                            
+                        - block: #7    
+                            
+                            - shell: echo  >> {{pre_check_logs}}
+                            
+                            ############## create fs ##############
+                            
+                            - shell: echo  >> {{pre_check_logs}}
+                            - shell: "echo 'Create FS of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
+                              
+                            - shell: "grep -m1 ' ext3 ' /etc/fstab"
+                              register: x
+                              ignore_errors: true  
+                            
+                            - set_fact: fst="ext3"
+                              when: x.stdout|regex_search('ext3')
+                            
+                            - shell: "grep -m1 ' ext4 ' /etc/fstab"
+                              register: x
+                              ignore_errors: true  
+                            
+                            - set_fact: fst="ext4"
+                              when: x.stdout|regex_search('ext4')
+                            
+                            - shell: "grep -m1 ' xfs ' /etc/fstab"
+                              register: x
+                              ignore_errors: true
+                            
+                            - set_fact: fst="xfs"
+                              when: x.stdout|regex_search('xfs')
+                              
+                            - name: create fs
+                              filesystem:
+                                fstype: "{{ fst }}"
+                                dev: "{{ src }}"
+                                force: "{{ force }}"
+                              register: x
+                              ignore_errors: true
+                                 
+                              
+                            - shell: "echo '***Success*** creation fs of /dev/{{ vgname }}/{{ lvname }} type={{fst}}!' >> {{pre_check_logs}}"
+                              when: x is not failed
+                            
+                            - block:  
+                                - shell: |
+                                         echo '***Error*** creation fs of /dev/{{ vgname }}/{{ lvname }}!' >> {{pre_check_logs}}
+                                         echo '{{x.msg}}' >> {{pre_check_logs}}
+                                - set_fact: continue_x=false
+                              when: x is failed
+                              
+                            - block: #8  
+                              
+                                - shell: echo  >> {{pre_check_logs}}  
+                                
+                                ############## mount fs ##############
+                                
+                                - shell: echo  >> {{pre_check_logs}}
+                                - shell: "echo 'Mount FS of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
+                                
+                                - set_fact: src='/dev/mapper/{{vgname}}-{{lvname}}'
+                                  
+                                - name: mount fs
+                                  mount:
+                                    path: "{{ fsname }}"
+                                    src: "{{ src }}"
+                                    fstype: "{{ fst }}"
+                                    state: "mounted"
+                                  ignore_errors: true
+                                  register: x
+                                 
+                                - shell: "echo '***Success*** mount of {{ fsname }}!' >> {{pre_check_logs}}"
+                                  when: x is not failed 
+                                  
+                                - shell: |
+                                         echo ***Error*** mount of {{ fsname }}!!  >> {{pre_check_logs}}
+                                         echo '{{x.msg}}'  >> {{pre_check_logs}}
+                                  when: x is failed
+                                 
+                                - shell: echo  >> {{pre_check_logs}}  
+                
+                              when: continue_x == true #8
+                
+                          when: continue_x == true #7
+                
+                      when: continue_x == true #6 
+                
+                  when: continue_x == true #5 
+                
+              when: continue_x == true #4    
        
-       - shell: "echo '***Success*** run of partprobe!' >> {{pre_check_logs}}"
-         when: x is not failed 
-         
-       - shell: |
-                echo '***Error*** run of partprobe!' >> {{pre_check_logs}}
-                echo '{{x.msg}}' >> {{pre_check_logs}}
-                meta: end_play
-         when: x is failed
-      
-      when: disk1|regex_search('mpath')
+          when: continue_x == true #3
+       
+      when: continue_x == true #2
     
-    - shell: echo  >> {{pre_check_logs}}
-    
-    ############## create pv ##############
-    
-    - shell: echo  >> {{pre_check_logs}}
-    - shell: echo 'Create PV of {{inventory_hostname}} *************' >> {{pre_check_logs}}
-    
-    - set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
-      when: disk1|regex_search('mpath')
-    
-    - name: pvcreate
-      shell: pvcreate {{ pvlist }}
-      register: x
-      ignore_errors: true
-      
-    - shell: "echo '***Success*** creation of PV {{pvlist}}' >> {{pre_check_logs}}"
-      when: x.rc==0
-      
-    - shell: |
-             echo '***Error*** creation of PV {{pvlist}}' >> {{pre_check_logs}}
-             echo '{{x.stderr}}' >> {{pre_check_logs}}
-      when: x.rc!=0  
-      
-    - shell: echo  >> {{pre_check_logs}}
-    
-    ############## create vg ##############
-    
-    
-    - shell: echo  >> {{pre_check_logs}}
-    - shell: echo 'Create VG of {{inventory_hostname}} *************' >> {{pre_check_logs}}
-    
-    - set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
-      when: disk1|regex_search('mpath')
-    
-    - name: create vg
-      lvg:
-        vg: "{{ vgname }}"
-        pvs: "{{ pvlist }}"
-        state: present
-        pesize: "{{ pesize }}"
-      register: x
-      ignore_errors: true
-      
-    - shell: "echo '***Success*** creation of VG {{vgname}}' >> {{pre_check_logs}}"
-      when: x is not failed
-      
-    - shell: |
-             echo '***Error*** creation of VG {{vgname}}' >> {{pre_check_logs}}
-             echo '{{x.msg}}' >> {{pre_check_logs}}
-             meta: end_play
-      when: x is failed
-        
-    
-    - shell: echo  >> {{pre_check_logs}}
-    
-    ############## create lv ##############
-    
-    - shell: echo  >> {{pre_check_logs}}
-    - shell: "echo 'Create LV of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
-      
-    - set_fact: pvlist='/dev/mapper/{{disk1}}{{partition}}'
-      when: disk1|regex_search('mpath') 
-      
-    - name: lvcreate
-      lvol:
-        vg: "{{ vgname }}"
-        lv: "{{ lvname }}"
-        size: "{{ size }}"
-        pvs: "{{ pvlist }}"
-        force: "{{ force }}"
-        active: "{{ active }}"  
-      register: x
-      ignore_errors: true
-      
-    - shell: "echo '***Success*** creation of LV {{vgname}}' >> {{pre_check_logs}}"
-      when: x is not failed
-      
-    - shell: |
-             echo '***Error*** creation of LV {{vgname}}' >> {{pre_check_logs}}
-             echo '{{x.msg}}' >> {{pre_check_logs}}
-             meta: end_play
-      when: x is failed
-        
-    - shell: echo  >> {{pre_check_logs}}
-    
-    ############## create fs ##############
-    
-    - shell: echo  >> {{pre_check_logs}}
-    - shell: "echo 'Create FS of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
-      
-    - shell: "grep -m1 ' ext3 ' /etc/fstab"
-      register: x
-      ignore_errors: true  
-    
-    - set_fact: fst="ext3"
-      when: x.stdout|regex_search('ext3')
-    
-    - shell: "grep -m1 ' ext4 ' /etc/fstab"
-      register: x
-      ignore_errors: true  
-    
-    - set_fact: fst="ext4"
-      when: x.stdout|regex_search('ext4')
-    
-    - shell: "grep -m1 ' xfs ' /etc/fstab"
-      register: x
-      ignore_errors: true
-    
-    - set_fact: fst="xfs"
-      when: x.stdout|regex_search('xfs')
-      
-    - name: create fs
-      filesystem:
-        fstype: "{{ fst }}"
-        dev: "{{ src }}"
-        force: "{{ force }}"
-      register: x
-      ignore_errors: true
-         
-      
-    - shell: "echo '***Success*** creation fs of /dev/{{ vgname }}/{{ lvname }} type={{fst}}!' >> {{pre_check_logs}}"
-      when: x is not failed
-      
-    - shell: |
-             echo '***Error*** creation fs of /dev/{{ vgname }}/{{ lvname }}!' >> {{pre_check_logs}}
-             echo '{{x.msg}}' >> {{pre_check_logs}}
-             meta: end_play
-      when: x is failed
-      
-    - shell: echo  >> {{pre_check_logs}}  
-    
-    ############## mount fs ##############
-    
-    - shell: echo  >> {{pre_check_logs}}
-    - shell: "echo 'Mount FS of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
-    
-    - set_fact: src='/dev/mapper/{{vgname}}-{{lvname}}'
-      
-    - name: mount fs
-      mount:
-        path: "{{ fsname }}"
-        src: "{{ src }}"
-        fstype: "{{ fst }}"
-        state: "mounted"
-      ignore_errors: true
-      register: x
-     
-    - shell: "echo '***Success*** mount of {{ fsname }}!' >> {{pre_check_logs}}"
-      when: x is not failed 
-      
-    - shell: |
-             echo ***Error*** mount of {{ fsname }}!!  >> {{pre_check_logs}}
-             echo '{{x.msg}}'  >> {{pre_check_logs}}
-      when: x is failed
-     
-    - shell: echo  >> {{pre_check_logs}}    
-    
-  when: continue_x == true
+  when: continue_x == true #1
