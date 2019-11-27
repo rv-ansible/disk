@@ -255,4 +255,4 @@
       when: x is failed
      
     - shell: echo  >> {{pre_check_logs}}    
-  when: continue_x
+  when: continue_x == true
