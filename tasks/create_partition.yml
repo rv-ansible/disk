@@ -187,13 +187,6 @@
 
 - shell: echo  >> {{pre_check_logs}}
 - shell: "echo 'Create FS of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
-
-- shell: "grep -m1 ' xfs ' /etc/fstab"
-  register: x
-  ignore_errors: true
-
-- set_fact: fst="xfs"
-  when: x.stdout|regex_search('xfs')
   
 - shell: "grep -m1 ' ext3 ' /etc/fstab"
   register: x
@@ -201,6 +194,20 @@
 
 - set_fact: fst="ext3"
   when: x.stdout|regex_search('ext3')
+
+- shell: "grep -m1 ' ext4 ' /etc/fstab"
+  register: x
+  ignore_errors: true  
+
+- set_fact: fst="ext4"
+  when: x.stdout|regex_search('ext4')
+
+- shell: "grep -m1 ' xfs ' /etc/fstab"
+  register: x
+  ignore_errors: true
+
+- set_fact: fst="xfs"
+  when: x.stdout|regex_search('xfs')
   
 - name: create fs
   filesystem:
@@ -228,22 +235,7 @@
 - shell: "echo 'Mount FS of {{inventory_hostname}} *************' >> {{pre_check_logs}}"
 
 - set_fact: src='/dev/mapper/{{vgname}}-{{lvname}}'
-  #when: disk1|regex_search('mpath')
   
-- shell: "grep -m1 ' xfs ' /etc/fstab"
-  register: x
-  ignore_errors: true
-
-- set_fact: fst="xfs"
-  when: x.stdout|regex_search('xfs')
-  
-- shell: "grep -m1 ' ext3 ' /etc/fstab"
-  register: x
-  ignore_errors: true  
-
-- set_fact: fst="ext3"
-  when: x.stdout|regex_search('ext3')  
-
 - name: mount fs
   mount:
     path: "{{ fsname }}"
