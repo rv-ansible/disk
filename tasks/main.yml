@@ -8,4 +8,4 @@
 ############# create partition tasks
 
 - include_tasks: create_partition.yml
-  when: create_partition|default(False)==True  
+  when: create_partition|default(False)==True and inventory_hostname.split(".")[0] | lower == server.split(".")[0] | lower 
