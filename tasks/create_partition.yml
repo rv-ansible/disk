@@ -1,5 +1,7 @@
 ---
 
+ set_fact: continue_x=true
+
 ############## create dev ##############
 
 - shell: echo  >> {{pre_check_logs}}
@@ -20,7 +22,8 @@
      - set_fact: continue_x=false
   when: x.stdout | regex_search('/dev/{{ pvname }}1') or x.stdout | regex_search('/dev/{{ pvname }}2') or x.stdout | regex_search('/dev/{{ pvname }}3') or x.stdout | regex_search('/dev/{{ pvname }}4')           
           
-- block:             
+- block:           
+  
     - name: Create the DEV 1 type P
       shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
       ignore_errors: true
@@ -255,4 +258,5 @@
       when: x is failed
      
     - shell: echo  >> {{pre_check_logs}}    
+    
   when: continue_x == true
