@@ -9,3 +9,7 @@
 
 - include_tasks: create_partition.yml
   when: create_partition|default(False)==True and inventory_hostname.split(".")[0] | lower == server.split(".")[0] | lower 
+
+- include_tasks: create_partition_nolog.yml
+  when: create_partition_nolog|default(False)==True and inventory_hostname.split(".")[0] | lower == server.split(".")[0] | lower 
+    
