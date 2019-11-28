@@ -26,30 +26,26 @@
   
     - name: Create the DEV 1 type P
       shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
-      ignore_errors: true
       when: type == "p" and disksize is defined
-      ignore_errors: yes
+      ignore_errors: true
       register: x  
         
     - name: Create the DEV 1 type P use all
       shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo ; echo w) | fdisk /dev/{{ pvname }}
-      ignore_errors: true
       when: type == "p" and disksize is not defined
-      ignore_errors: yes
+      ignore_errors: true
       register: x  
       
     - name: Create the DEV l type L
       shell: (echo n; echo l; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
-      ignore_errors: true
       when: type == "l" and disksize is defined
-      ignore_errors: yes
+      ignore_errors: true
       register: x
       
     - name: Create the DEV l type L use all
       shell: (echo n; echo l; echo ; echo ; echo w) | fdisk /dev/{{ pvname }}
-      ignore_errors: true
       when: type == "l" and disksize is not defined  
-      ignore_errors: yes
+      ignore_errors: true
       register: x  
     
     - shell: "echo '***Success*** creation of DEV {{pvlist}}' >> {{pre_check_logs}}"
@@ -66,16 +62,14 @@
       
         - name: Change the type to LVM for DEV 1
           shell: (echo t; echo {{ ptype }}; echo w) | fdisk /dev/{{ pvname }}
-          ignore_errors: true
           when: partition == "1"
-          ignore_errors: yes
+          ignore_errors: true
           register: x
         
         - name: Change the type to LVM for DEV >1
           shell: (echo t; echo {{ partition }}; echo {{ ptype }}; echo w) | fdisk /dev/{{ pvname }}
-          ignore_errors: true
           when: not(partition == "1")
-          ignore_errors: yes
+          ignore_errors: true
           register: x
         
         - shell: "echo '***Success*** change type of DEV {{pvlist}} to {{ptype}}!' >> {{pre_check_logs}}"
@@ -237,7 +231,7 @@
                               filesystem:
                                 fstype: "{{ fst }}"
                                 dev: "{{ src }}"
-                                force: "{{ force }}"
+                                #force: "{{ force }}"
                               register: x
                               ignore_errors: true
                                  
@@ -275,9 +269,41 @@
                                 - shell: "echo '***Success*** mount of {{ fsname }}!' >> {{pre_check_logs}}"
                                   when: x is not failed 
                                   
-                                - shell: |
-                                         echo ***Error*** mount of {{ fsname }}!!  >> {{pre_check_logs}}
-                                         echo '{{x.msg}}'  >> {{pre_check_logs}}
+                                - block:
+                                
+                                    - name: Try mkfs first before mount
+                                      shell: "mkfs.{{fst}} {{src}}"
+                                      register: y
+                                      ignore_errors: true
+                                  
+                                    - block: 
+
+                                        - shell: "echo '***Success*** mkfs.{{ fst }} {{ src }}!' >> {{pre_check_logs}}"
+
+                                        - name: 2nd try mount of fs
+                                          mount:
+                                            path: "{{ fsname }}"
+                                            src: "{{ src }}"
+                                            fstype: "{{ fst }}"
+                                            state: "mounted"
+                                          ignore_errors: true
+                                          register: z
+                                         
+                                        - shell: "echo '***Success*** 2nd try mount of {{ fsname }}!' >> {{pre_check_logs}}"
+                                          when: z is not failed 
+
+                                        - shell: |
+                                                 echo ***Error*** 2nd try mount of {{ fsname }}!!  >> {{pre_check_logs}}                                                 
+                                                 echo '{{z.msg}}'  >> {{pre_check_logs}}
+                                          when: z is failed
+                                    
+                                      when: y is not failed
+                                      
+                                    - shell: |
+                                              echo ***Error*** mkfs {{ fst }} {{ src }}!  >> {{pre_check_logs}}
+                                              echo '{{y.msg}}'  >> {{pre_check_logs}}
+                                      when: y is failed
+                                    
                                   when: x is failed
                                  
                                 - shell: echo  >> {{pre_check_logs}}  
