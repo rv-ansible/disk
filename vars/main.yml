@@ -7,35 +7,6 @@
 # datestamp:                                # extra vars
 continue_x: true
 
-############# get raw disk variables
-# raw_prefix:                               # extra vars
-# check raw disk /dev/sd[b-k]
-letters:
-   - b
-   - c
-   - d
-   - e
-   - f
-   - g
-   - h 
-   - i 
-   - j 
-   - k
-
-# numbers should be the same as 
-# the letters above   
-numbers:
-  - 0
-  - 1
-  - 2
-  - 3 
-  - 4
-  - 5
-  - 6
-  - 7
-  - 8
-  - 9  
-
 ############# create partition variables
 pvname:                 # coming from inventory variables example pvname=sdc on each host
 vgname:                  # vg name

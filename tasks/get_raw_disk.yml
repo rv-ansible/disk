@@ -12,7 +12,7 @@
 - name: Register the bindings    
   shell: "cat {{pre_check_tmp}}/temp44_008.log | awk 'NR=={{item}}{print $1}' || true"
   register: w
-  with_items: '{{numbers}}'
+  with_sequence: start=0 count={{letters|length}}
       
 - name: Save the raw prefix
   set_fact: raw_prefix='mpath'
@@ -39,13 +39,13 @@
     
 - name: Save to log
   shell: |
-         echo "    disk={{raw_prefix}}{{x.results[item].item}} size={{x.results[item].stdout}} {{y.results[item].stdout | replace(',','')}}" >> {{pre_check_logs}}
-  when: x.results[item].stdout|int>=1 and x.results[item].stdout is defined
-  with_items: '{{numbers}}'
+         echo "    disk={{raw_prefix}}{{x.results[item|int].item}} size={{x.results[item|int].stdout}} {{y.results[item|int].stdout | replace(',','')}}" >> {{pre_check_logs}}
+  when: x.results[item|int].stdout|int>=1 and x.results[item|int].stdout is defined
+  with_sequence: start=0 count={{letters|length}}
 
 - name: Show to ansible log
   debug:
     msg: 
-      - "    disk={{raw_prefix}}{{x.results[item].item}} size={{x.results[item].stdout}} {{y.results[item].stdout | replace(',','')}}"  
-  when: x.results[item].stdout|int>=1 and x.results[item].stdout is defined
-  with_items: '{{numbers}}'
+      - "    disk={{raw_prefix}}{{x.results[item|int].item}} size={{x.results[item|int].stdout}} {{y.results[item|int].stdout | replace(',','')}}"  
+  when: x.results[item|int].stdout|int>=1 and x.results[item|int].stdout is defined
+  with_sequence: start=0 count={{letters|length}}
