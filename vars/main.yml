@@ -13,7 +13,6 @@ vgname:                  # vg name
 lvname:                 # lv name
 fsname:                 # /path 
 partition: "1"                        # 1-4
-
 type: "p"                             # partition or logical
 ptype: "8e"                           # lvm
 disksize:                             # dev blank=use-all or put you own size like 10G
@@ -21,10 +20,7 @@ pvlist: "/dev/{{disk1}}{{partition}}"
 size: +100%FREE                       # lv to use
 src: "/dev/{{vgname}}/{{lvname}}"
 fst: "xfs"                            # the script automatically select this according to /etc/fstab   
-contp: true
-
-contx: true
-
+remove_fstab: true
 force: "no"
 answer: "no"
 pesize: "4"

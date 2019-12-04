@@ -1,15 +1,14 @@
 ---
 
-############# get raw disk task
-
 - include_tasks: get_raw_disk.yml
   when: get_raw_disk|default(False)==True  
-
-############# create partition tasks
 
 - include_tasks: create_partition.yml
   when: create_partition|default(False)==True and inventory_hostname.split(".")[0] | lower == server.split(".")[0] | lower 
 
 - include_tasks: create_partition_nolog.yml
   when: create_partition_nolog|default(False)==True and inventory_hostname.split(".")[0] | lower == server.split(".")[0] | lower 
+    
+- include_tasks: remove_partition_nolog.yml
+  when: remove_partition_nolog|default(False)==True and inventory_hostname.split(".")[0] | lower == server.split(".")[0] | lower 
     
