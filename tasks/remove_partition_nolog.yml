@@ -108,7 +108,7 @@
                   echo '{{x.stdout}}' 
                   echo '{{x.stderr}}' 
          - meta: end_play
-      when: x.stdout | regex_search('/dev/{{ pvname }}2') or x.stdout | regex_search('/dev/{{ pvname }}3') or x.stdout | regex_search('/dev/{{ pvname }}4')       
+      when: x.stdout is search('2') or x.stdout is search('3') or x.stdout is search('4')       
     - name: Remove dev (for partition 1 only)
       shell: (echo d; echo w) | fdisk /dev/{{ pvname }}
       ignore_errors: true

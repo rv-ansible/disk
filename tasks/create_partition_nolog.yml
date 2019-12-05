@@ -11,12 +11,12 @@
     - set_fact: pvlist='/dev/{{pvname}}{{partition}}'
       when: disk1|regex_search('mpath')  
     # for failsafe
-    - shell: fdisk -l /dev/{{pvname}}
+    - shell: 'ls /dev/{{pvname}}*'
       register: x
     - block:  
          - debug: msg='***Error*** other PARTITION found {{pvname}}[x]!' 
          - set_fact: continue_x=false
-      when: x.stdout | regex_search('/dev/{{ pvname }}1') or x.stdout | regex_search('/dev/{{ pvname }}2') or x.stdout | regex_search('/dev/{{ pvname }}3') or x.stdout | regex_search('/dev/{{ pvname }}4')           
+      when: x.stdout is search('1') or x.stdout is search('2') or x.stdout is search('3') or x.stdout is search('4')           
     - block: # for failsafe ok          
         - name: Create the DEV 1 type P
           shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
