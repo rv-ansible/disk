@@ -77,7 +77,7 @@
                - set_fact: continue_x=false
              when: x is failed
           when: disk1|regex_search('mpath')
-      when: continue_x == true # for failsafe ok          
+      when: continue_x==true # for failsafe ok          
   when: disk_process|regex_search('D') and continue_x==true
 
 ############## create pv ##############
