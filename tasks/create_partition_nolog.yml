@@ -1,6 +1,17 @@
 ---
 
+- name: install lvm2
+  yum:
+    name: lvm2
+    state: present
+
 - set_fact: continue_x=true
+
+- set_fact: forcefst=''
+  when: forcefst is not defined
+
+- fail: msg='forcefst not in ext3 or ext4 or xfs or ""'
+  when: forcefst is defined and forcefst!='ext3' and forcefst!='ext4' and forcefst!='xfs' and forcefst!=''
 
 # disk_process=DPVLFM
 
@@ -19,25 +30,25 @@
       when: x.stdout is search('1') or x.stdout is search('2') or x.stdout is search('3') or x.stdout is search('4')           
     - block: # for failsafe ok          
         - name: Create the DEV 1 type P
-          shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
-          when: type == "p" and disksize is defined
-          ignore_errors: true
-          register: x  
-        - name: Create the DEV 1 type P use all
           shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo ; echo w) | fdisk /dev/{{ pvname }}
-          when: type == "p" and disksize is not defined
+          when: type == "p"
           ignore_errors: true
           register: x  
-        - name: Create the DEV l type L
-          shell: (echo n; echo l; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
-          when: type == "l" and disksize is defined
-          ignore_errors: true
-          register: x
-        - name: Create the DEV l type L use all
-          shell: (echo n; echo l; echo ; echo ; echo w) | fdisk /dev/{{ pvname }}
-          when: type == "l" and disksize is not defined  
-          ignore_errors: true
-          register: x  
+        # - name: Create the DEV 1 type P use all
+        #   shell: (echo n; echo {{ type }}; echo {{ partition }}; echo ; echo ; echo w) | fdisk /dev/{{ pvname }}
+        #   when: type == "p" and size|default('')|trim == ''
+        #   ignore_errors: true
+        #   register: x  
+        # - name: Create the DEV l type L
+        #   shell: (echo n; echo l; echo ; echo +{{ disksize }}; echo w) | fdisk /dev/{{ pvname }}
+        #   when: type == "l" and size|default('')|trim != ''
+        #   ignore_errors: true
+        #   register: x
+        # - name: Create the DEV l type L use all
+        #   shell: (echo n; echo l; echo ; echo ; echo w) | fdisk /dev/{{ pvname }}
+        #   when: type == "l" and size|default('')|trim == ''
+        #   ignore_errors: true
+        #   register: x  
         - block:  
              - debug: 
                  msg:
@@ -142,38 +153,45 @@
   when: disk_process|regex_search('L') and continue_x==true
 
 ############## create [F]s ##############      
-- block:    
-    - shell: "grep -m1 ' ext3 ' /etc/fstab"
-      register: x
-      ignore_errors: true  
-    - set_fact: fst="ext3"
-      when: x.stdout|regex_search('ext3')
-    - shell: "grep -m1 ' ext4 ' /etc/fstab"
-      register: x
-      ignore_errors: true  
-    - set_fact: fst="ext4"
-      when: x.stdout|regex_search('ext4')
-    - shell: "grep -m1 ' xfs ' /etc/fstab"
-      register: x
-      ignore_errors: true
-    - set_fact: fst="xfs"
-      when: x.stdout|regex_search('xfs')
-    - name: create fs
-      filesystem:
-        fstype: "{{ fst }}"
-        dev: "{{ src }}"
-        #force: "{{ force }}"
-      register: x
-      ignore_errors: true
-    - block:  
-        - debug: 
-            msg:
-              - '***Error*** creation fs of /dev/{{ vgname }}/{{ lvname }}!' 
-              - '{{x.msg}}' 
-        - set_fact: continue_x=false
-      when: x is failed
-  when: disk_process|regex_search('F') and continue_x==true
+- block:
 
+     - set_fact: fst="{{forcefst}}"  
+       when: forcefst == 'ext3' or forcefst == 'ext4' or forcefst == 'xfs'  
+     - block:
+         - shell: "grep -m1 ' ext3 ' /etc/fstab"
+           register: x
+           ignore_errors: true  
+         - set_fact: fst="ext3"
+           when: x.stdout|regex_search('ext3')
+         - shell: "grep -m1 ' ext4 ' /etc/fstab"
+           register: x
+           ignore_errors: true  
+         - set_fact: fst="ext4"
+           when: x.stdout|regex_search('ext4')
+         - shell: "grep -m1 ' xfs ' /etc/fstab"
+           register: x
+           ignore_errors: true
+         - set_fact: fst="xfs"
+           when: x.stdout|regex_search('xfs')
+       when: forcefst == ''
+
+     - name: create fs
+       filesystem:
+          fstype: "{{ fst }}"
+          dev: "{{ src }}"
+          #force: "{{ force }}"
+       register: x
+       ignore_errors: true
+     - block:  
+          - debug: 
+              msg:
+                - '***Error*** creation fs of /dev/{{ vgname }}/{{ lvname }}!' 
+                - '{{x.msg}}' 
+          - set_fact: continue_x=false
+       when: x is failed
+
+  when: disk_process|regex_search('F') and continue_x==true
+  
 ############## [M]ount fs ##############
 - block:  
     - set_fact: src='/dev/mapper/{{vgname}}-{{lvname}}'
